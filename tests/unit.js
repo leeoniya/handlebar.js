@@ -221,6 +221,18 @@ test("{{a.b}} Property Accessors", function(){
 	// super maybe: add numeric enum access? {{item.parts[2]}} or {{item.parts.2}}
 })
 
+test("{{#}} Enum Key Access", function(){
+	var data, tmpl, M = new HandleBar();
+	
+	tmpl = "{{#}}";
+	data = ["A","B","C"];
+	equals(M.Render(tmpl, data), "012", "Access to current enum position");
+	
+	tmpl = "{{items}}{{#}}{{/items}}";
+	data = {items:["A","B","C"]};
+	equals(M.Render(tmpl, data), "012", "Access to current enum position #2");
+});
+
 test("Empty Values", function(){
 	var data, tmpl, M = new HandleBar();
 	

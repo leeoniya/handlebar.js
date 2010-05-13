@@ -13,7 +13,7 @@ var HandleBar = function(opts) {
 
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
-			re = function(){return (/{{([{>?!]*([\w.]+)(?:[>~=][\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
+			re = function(){return (/{{([{>?!]*([\w.#]+)(?:[>~=][\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
 		
 		this.next = function() {
 			if (end) return null;
@@ -39,8 +39,8 @@ var HandleBar = function(opts) {
 	function ParseTag(tagStr){
 		if (!tagStr) return null;
 		// 1: unescaped; 2: bool or useCache; 3: dataKey / cacheKey; 4: reformat or useCache; 5: formatter / cacheKey
-		var m = tagStr.match(/({)?([>?!])?([\w.]+)(?:([>~=])([~\w.]+))?/),
-			d = {bool: false, dataKey: null, propPath: null, cacheKey: null, inverted: false, formatter: null, escaped: !m[1], subTag: null};
+		var m = tagStr.match(/({)?([>?!])?([\w.#]+)(?:([>~=])([~\w.]+))?/),
+			d = {bool: false, dataKey: null, propPath: null, cacheKey: null, inverted: false, formatter: null, escaped: !m[1], subTag: null, enumAcc: false};
 
 		switch (m[2]) {
 			case '>': d.cacheKey = m[3]; break;
@@ -61,11 +61,16 @@ var HandleBar = function(opts) {
 			d.dataKey = dp.shift() || '.';
 			d.propPath = dp.length > 0 ? dp : null;
 		}
+		
+		// handle enum position accessors
+		if (d.dataKey && d.dataKey == '#') {
+			d.enumAcc = true;
+		}
 
 		return d;
 	}
 
-	function Parse(template) {
+	function Parse(template, parent) {
 		var params, node, nodes = [];
 		if (!template) return nodes;
 
@@ -85,6 +90,8 @@ var HandleBar = function(opts) {
 			if (!cacheOnly) {node = NodeFactory.Create(tag, content || tag.subTag);}					// create normal or cacheReader
 
 			if (!node) {continue;}
+			
+			node.parent = parent;
 			nodes.push(node);
 		}
 
@@ -168,12 +175,15 @@ var HandleBar = function(opts) {
 			// cacheReader nodes {{items>blah}} {{>blah}}
 			if (tag && tag.cacheKey) {return new CacheNode(tag.dataKey, tag.propPath, tag.cacheKey);}
 			
+			// {{#}}
+			if (tag && tag.enumAcc) {return new EnumPosNode;}
+			
 			if (!content) {
 				// {{item}} {{{item}} {{item~frm}} {{.}}
 				return new PropNode(tag.dataKey, tag.propPath, tag.escaped, tag.formatter);
 			}
 			else {
-				var node, children = Parse(content);
+				var node;
 				
 				if (!tag) {node = new BlockNode;}
 				// {{?bool}} {{!bool}}
@@ -181,12 +191,13 @@ var HandleBar = function(opts) {
 				// {{items}} {{items.blah}}
 				else {node = new BlockNode(tag.dataKey, tag.propPath);}
 				
-				node.children = children;
+				node.children = Parse(content, node);
 				return node;
 			}
 		}
 		
 		var Node = function() {
+			this.parent = null;
 			this.Clone = Clone;
 		}
 			
@@ -214,6 +225,13 @@ var HandleBar = function(opts) {
 				
 				this.Render = function(buf, ctx) {
 					buf.write(this.content);
+				}
+			}
+			
+			var EnumPosNode = function() {
+				this.base = Node; this.base();
+				this.Render = function(buf, ctx) {
+					buf.write(this.parent.enumPos, false);
 				}
 			}
 			
@@ -265,6 +283,7 @@ var HandleBar = function(opts) {
 					this.RenderChildren = function(buf, ctx) {
 						var rctxs = arrayWrap(ctx);
 						for (var i in rctxs) {
+							this.enumPos = i;
 							for (var j in this.children) {
 								this.children[j].Render(buf, rctxs[i]);
 							}
