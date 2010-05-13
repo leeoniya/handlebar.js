@@ -190,6 +190,9 @@ test("{{a.b}} Property Accessors", function(){
 	data = {items:[1,2,3]};
 	equals(M.Render(tmpl, data), "3", "Literal");
 	
+	tmpl = "{{items.0}}";
+	equals(M.Render(tmpl, data), "1", "Array index");
+	
 	tmpl = "{{item.parts}}{{a}}{{b}}{{/item.parts}}";
 	data = {item: {parts:{a:1,b:2}}};
 	equals(M.Render(tmpl, data), "12", "As new context (hash)");
