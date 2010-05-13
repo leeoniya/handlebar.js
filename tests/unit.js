@@ -202,7 +202,7 @@ test("{{a.b}} Property Accessors", function(){
 	data = {item: {parts:[{a:4,b:5},{a:8,b:2}]}};
 	equals(M.Render(tmpl, data), "4582", "As new context (enum/hashes)");
 	
-	tmpl = "{{item.parts}}{{.length}}{{/item.parts}}";
+	tmpl = "{{item.parts}}{{length}}{{/item.parts}}";
 	data = {item: {parts:[[5,3],[8,3,2]]}};
 	equals(M.Render(tmpl, data), "23", "As new context (enum/arrays)");
 
