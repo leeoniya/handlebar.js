@@ -14,11 +14,11 @@ var HandleBar = function(opts) {
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
 			re = function(){return (/{{([{>?!#]*([\w.]+)?(?:[>~=][\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
-		
+
 		this.next = function() {
 			if (end) return null;
 			if (buf.length) return buf.shift();
-			
+
 			match = re.exec(tmpl);
 			if (match) {
 				pretxt = match.input.substring(idx, match.index) || '';
@@ -31,7 +31,7 @@ var HandleBar = function(opts) {
 				if (postxt) buf.push([null,postxt]);
 				end = true;
 			}
-			
+
 			return buf.shift() || null;
 		}
 	}
@@ -45,7 +45,7 @@ var HandleBar = function(opts) {
 
 		switch (m[2]) {
 			case '>': d.cacheKey = m[3]; break;
-			case '#': d.enumAcc = true; dataPathStr = m[3]; break;		// serves both, force-enum objects and enum keys 
+			case '#': d.enumAcc = true; dataPathStr = m[3]; break;		// serves both, force-enum objects and enum keys
 			case '!': d.inverted = true;
 			case '?': d.bool = true;
 			default: dataPathStr = m[3];
@@ -63,9 +63,9 @@ var HandleBar = function(opts) {
 		}
 
 		return d;
-		
+
 	}
-	
+
 	function Parse(template, parent) {
 		var params, node, nodes = [];
 		if (!template) return nodes;
@@ -82,24 +82,24 @@ var HandleBar = function(opts) {
 				cache[tag.cacheKey] = NodeFactory.Create(tag2, content);
 				cacheOnly = !tag.dataPath.length;
 			}
-			
+
 			if (!cacheOnly) {node = NodeFactory.Create(tag, content || tag.subTag);}					// create normal or cacheReader
 
 			if (!node) {continue;}
-			
+
 			node.parent = parent;
 			nodes.push(node);
 		}
 
 		return nodes;
 	}
-	
+
 	this.Render = function(tpl, ctx, enumRoot) {
 		var enumRoot = enumRoot || false,
 			rootTag = ParseTag((enumRoot ? '#' : '') + 'root'),
 			rootNode = NodeFactory.Create(rootTag, tpl),
 			buf = new StringWriter();
-		
+
 		rootNode.Render(buf, {root:ctx});
 		return buf.toString();
 	}
@@ -126,7 +126,7 @@ var HandleBar = function(opts) {
 		this.write = function(string, escape) {this.string += !escape ? string : escapeHTML(string);}
 		this.toString = function() {return this.string;}
 	}
-	
+
 	// a better typeof
 	function typeOf(obj) {
 		var ret = typeof obj;
@@ -164,7 +164,7 @@ var HandleBar = function(opts) {
 		ClonedObject.prototype = obj || this;
 		return new ClonedObject;
 	}
-	
+
 	// depth-traverses an object by properties
 	function getProp(obj, propPath) {
 		for (var i in propPath) {
@@ -179,10 +179,10 @@ var HandleBar = function(opts) {
 		this.Create = function(tag, content) {
 			// text nodes
 			if (!tag && content && content.indexOf('{{') == -1) {return new TextNode(content);}
-			
+
 			// cacheReader nodes {{items>blah}} {{>blah}}
 			if (tag && tag.cacheKey) {return new CacheNode(tag.dataPath, tag.cacheKey);}
-			
+
 			if (!content) {
 				// {{#}}
 				if (tag && tag.enumAcc) {return new EnumPosNode;}
@@ -191,28 +191,28 @@ var HandleBar = function(opts) {
 			}
 			else {
 				var node;
-				
+
 				if (!tag) {node = new BlockNode;}
 				// {{?bool}} {{!bool}}
 				else if (tag.bool) {node = new BoolNode(tag.dataPath, tag.inverted);}
 				// {{items}} {{items.blah}}
 				else {node = new BlockNode(tag.dataPath, tag.enumAcc);}
-				
+
 				node.children = Parse(content, node);
 				return node;
 			}
 		}
-		
+
 		var Node = function() {
 			this.parent = null;
 			this.Clone = Clone;
 		}
-			
+
 			var CacheNode = function(dataPath, cacheKey) {
 				this.base = Node; this.base();
 				this.dataPath = dataPath || [];
 				this.cacheKey = cacheKey;
-				
+
 				this.Render = function(buf, ctx) {
 					var node = cache[this.cacheKey].Clone();
 					if (!this.dataPath.length)
@@ -227,19 +227,19 @@ var HandleBar = function(opts) {
 			var TextNode = function(content) {
 				this.base = Node; this.base();
 				this.content = content;
-				
+
 				this.Render = function(buf, ctx) {
 					buf.write(this.content);
 				}
 			}
-			
+
 			var EnumPosNode = function() {
 				this.base = Node; this.base();
 				this.Render = function(buf, ctx) {
 					buf.write(this.parent.enumPos, false);
 				}
 			}
-			
+
 			// data lookup node (all nodes where render directly depends on looked up data)
 			var LookupNode = function(dataPath) {
 				this.base = Node; this.base();
@@ -254,7 +254,7 @@ var HandleBar = function(opts) {
 					this.base = LookupNode; this.base(dataPath);
 					this.escape = escape || true;
 					this.formatter = formatters[formatter] || function(val){return val;};
-					
+
 					this.Render = function(buf, ctx) {
 						var rctx = this.rendCtx(ctx);
 						if (isFalsy(rctx)) return;
@@ -267,12 +267,12 @@ var HandleBar = function(opts) {
 					this.base = LookupNode; this.base(dataPath);
 					this.children = [];
 					this.enumObjs = enumObjs || false;
-					
+
 					this.Render = function(buf, ctx) {
 						var rctx = this.rendCtx(ctx);
 						this.RenderChildren(buf, rctx);
 					}
-					
+
 					this.RenderChildren = function(buf, ctx) {
 						var rctxs = this.enumObjs ? ctx : arrayWrap(ctx);
 						for (var i in rctxs) {
@@ -286,12 +286,12 @@ var HandleBar = function(opts) {
 					var BoolNode = function(dataPath, inverted) {
 						this.base = BlockNode; this.base(dataPath);
 						this.inverted = inverted || false;		// TODO: make better
-						
+
 						this.rendCtx = function(ctx) {return ctx};
 
 						this.Render = function(buf, ctx) {
 							if (!isFalsy(getProp(ctx, this.dataPath)) === this.inverted) return;
-							
+
 							var rctx = this.rendCtx(ctx);
 							this.RenderChildren(buf, rctx);
 						}
