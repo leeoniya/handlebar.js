@@ -8,12 +8,12 @@ syntax http://mustache.github.com/mustache.5.html
 */
 
 var HandleBar = function(opts) {
-	var formatters = opts && opts.formatters ? opts.formatters : {};
-	var cache = {};
+	var formatters = opts && opts.formatters ? opts.formatters : {},
+		cache = {};
 
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
-			re = function(){return (/{{([{>?!]*([\w.#]+)(?:[>~=][\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
+			re = function(){return (/{{([{>?!#]*([\w.]+)?(?:[>~=][\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
 		
 		this.next = function() {
 			if (end) return null;
@@ -39,11 +39,12 @@ var HandleBar = function(opts) {
 	function ParseTag(tagStr){
 		if (!tagStr) return null;
 		// 1: unescaped; 2: bool or useCache; 3: dataKey / cacheKey; 4: reformat or useCache; 5: formatter / cacheKey
-		var m = tagStr.match(/({)?([>?!])?([\w.#]+)(?:([>~=])([~\w.]+))?/),
+		var m = tagStr.match(/({)?([>?!#])?([\w.]+)?(?:([>~=])([~\w.]+))?/),
 			d = {bool: false, dataKey: null, propPath: null, cacheKey: null, inverted: false, formatter: null, escaped: !m[1], subTag: null, enumAcc: false};
 
 		switch (m[2]) {
 			case '>': d.cacheKey = m[3]; break;
+			case '#': d.enumAcc = true; d.dataKey = m[3]; break;		// serves both, force-enum objects and enum keys 
 			case '!': d.inverted = true;
 			case '?': d.bool = true;
 			default: d.dataKey = m[3];
@@ -61,13 +62,9 @@ var HandleBar = function(opts) {
 			d.dataKey = dp.shift() || '.';
 			d.propPath = dp.length > 0 ? dp : null;
 		}
-		
-		// handle enum position accessors
-		if (d.dataKey && d.dataKey == '#') {
-			d.enumAcc = true;
-		}
 
 		return d;
+		
 	}
 
 	function Parse(template, parent) {
@@ -98,9 +95,12 @@ var HandleBar = function(opts) {
 		return nodes;
 	}
 	
-	this.Render = function(tpl, ctx) {
-		var rootNode = NodeFactory.Create(ParseTag('root'), tpl);
-		var buf = new StringWriter();
+	this.Render = function(tpl, ctx, enumRoot) {
+		var enumRoot = enumRoot || false,
+			rootTag = ParseTag((enumRoot ? '#' : '') + 'root'),
+			rootNode = NodeFactory.Create(rootTag, tpl),
+			buf = new StringWriter();
+		
 		rootNode.Render(buf, {root:ctx});
 		return buf.toString();
 	}
@@ -175,10 +175,9 @@ var HandleBar = function(opts) {
 			// cacheReader nodes {{items>blah}} {{>blah}}
 			if (tag && tag.cacheKey) {return new CacheNode(tag.dataKey, tag.propPath, tag.cacheKey);}
 			
-			// {{#}}
-			if (tag && tag.enumAcc) {return new EnumPosNode;}
-			
 			if (!content) {
+				// {{#}}
+				if (tag && tag.enumAcc) {return new EnumPosNode;}
 				// {{item}} {{{item}} {{item~frm}} {{.}}
 				return new PropNode(tag.dataKey, tag.propPath, tag.escaped, tag.formatter);
 			}
@@ -189,7 +188,7 @@ var HandleBar = function(opts) {
 				// {{?bool}} {{!bool}}
 				else if (tag.bool) {node = new BoolNode(tag.dataKey, tag.propPath, tag.inverted);}
 				// {{items}} {{items.blah}}
-				else {node = new BlockNode(tag.dataKey, tag.propPath);}
+				else {node = new BlockNode(tag.dataKey, tag.propPath, tag.enumAcc);}
 				
 				node.children = Parse(content, node);
 				return node;
@@ -271,9 +270,10 @@ var HandleBar = function(opts) {
 				}
 
 				// implements children rendering
-				var BlockNode = function(dataKey, propPath) {
+				var BlockNode = function(dataKey, propPath, enumObjs) {
 					this.base = LookupNode;	this.base(dataKey, propPath);
 					this.children = [];
+					this.enumObjs = enumObjs || false;
 					
 					this.Render = function(buf, ctx) {
 						var rctx = this.rendCtx(ctx);
@@ -281,7 +281,7 @@ var HandleBar = function(opts) {
 					}
 					
 					this.RenderChildren = function(buf, ctx) {
-						var rctxs = arrayWrap(ctx);
+						var rctxs = this.enumObjs ? ctx : arrayWrap(ctx);
 						for (var i in rctxs) {
 							this.enumPos = i;
 							for (var j in this.children) {

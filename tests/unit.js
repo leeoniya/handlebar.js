@@ -233,6 +233,19 @@ test("{{#}} Enum Key Access", function(){
 	equals(M.Render(tmpl, data), "012", "Access to current enum position #2");
 });
 
+
+test("{{#blah}} Enum Objects", function(){
+	var data, tmpl, M = new HandleBar();
+	
+	tmpl = "{{#}}: {{.}},";
+	data = {A:'one', B:'two', C:'three'};
+	equals(M.Render(tmpl, data, true), "A: one,B: two,C: three,", "Enumerate root context properties");
+	
+	tmpl = "{{heading}}: {{#stuff}}{{#}}: {{.}},{{/stuff}}";
+	data = {heading:"My Stuff", stuff: {A:'one', B:'two', C:'three'}};
+	equals(M.Render(tmpl, data), "My Stuff: A: one,B: two,C: three,", "Enumerate explicit object contexts");
+});
+
 test("Empty Values", function(){
 	var data, tmpl, M = new HandleBar();
 	
