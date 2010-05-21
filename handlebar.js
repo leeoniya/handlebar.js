@@ -9,11 +9,12 @@ syntax http://mustache.github.com/mustache.5.html
 
 var HandleBar = function(opts) {
 	var formatters = opts && opts.formatters ? opts.formatters : {},
+		checkers = opts && opts.checkers ? opts.checkers : {},
 		cache = {};
 
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
-			re = function(){return (/{{([{>?!#]*([\w.]+)?(?:[>~=][\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
+			re = function(){return (/{{([{>?!#]*([\w.]+)?(?:[>~=][~>\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
 
 		this.next = function() {
 			if (end) return null;
@@ -32,15 +33,15 @@ var HandleBar = function(opts) {
 				end = true;
 			}
 
-			return buf.shift() || null;
+			return buf.shift();
 		}
 	}
 
 	function ParseTag(tagStr){
 		if (!tagStr) return null;
 		// 1: unescaped; 2: bool or useCache; 3: dataPathStr / cacheKey; 4: reformat or useCache; 5: formatter / cacheKey
-		var m = tagStr.match(/({)?([>?!#])?([\w.]+)?(?:([>~=])([~\w.]+))?/),
-			d = {bool: false, dataPath: [], cacheKey: null, inverted: false, formatter: null, escaped: !m[1], subTag: null, enumAcc: false},
+		var m = tagStr.match(/({)?([>?!#])?([\w.]+)?(?:([>~=])([~>\w.]+))?/),
+			d = {bool: false, dataPath: null, cacheKey: null, inverted: false, formatter: null, escaped: !m[1], subTag: null, enumAcc: false},
 			dataPathStr;
 
 		switch (m[2]) {
@@ -58,36 +59,35 @@ var HandleBar = function(opts) {
 		}
 
 		// handle property paths (items.length)
-		if (dataPathStr && dataPathStr !== '.') {
+		if (dataPathStr == '.')
+			d.dataPath = [];
+		else if (dataPathStr)
 			d.dataPath = dataPathStr.split('.');
-		}
 
 		return d;
 
 	}
 
-	function Parse(template, parent) {
-		var params, node, nodes = [];
+	function Parse(template) {
+		var params, nodes = [];
 		if (!template) return nodes;
 
 		var tkz = new Tokenizer(template);
 		while ((params = tkz.next())) {
-			var tag = ParseTag(params[0]),
-				content = params[1], cacheOnly = false;
+			var tag = ParseTag(params[0]), content = params[1], cacheOnly = false, node = null;
 			// write data-unbound prototype node to cache
 			if (tag && tag.cacheKey && content) {
 				var tag2 = Clone(tag);
 				tag2.cacheKey = null;
 				tag2.dataPath = [];
 				cache[tag.cacheKey] = NodeFactory.Create(tag2, content);
-				cacheOnly = !tag.dataPath.length;
+				cacheOnly = !tag.dataPath;
 			}
 
-			if (!cacheOnly) {node = NodeFactory.Create(tag, content || tag.subTag);}					// create normal or cacheReader
+			if (!cacheOnly) {node = NodeFactory.Create(tag, content || tag.subTag);}	// create normal or cacheReader
 
 			if (!node) {continue;}
 
-			node.parent = parent;
 			nodes.push(node);
 		}
 
@@ -99,7 +99,6 @@ var HandleBar = function(opts) {
 			rootTag = ParseTag((enumRoot ? '#' : '') + 'root'),
 			rootNode = NodeFactory.Create(rootTag, tpl),
 			buf = new StringWriter();
-
 		rootNode.Render(buf, {root:ctx});
 		return buf.toString();
 	}
@@ -155,7 +154,7 @@ var HandleBar = function(opts) {
 		switch (typeOf(v)) {
 			case "array": return v;
 			case "object": return [v];
-			default: return [];
+			default: return v;
 		}
 	}
 
@@ -163,15 +162,6 @@ var HandleBar = function(opts) {
 		var ClonedObject = function(){};
 		ClonedObject.prototype = obj || this;
 		return new ClonedObject;
-	}
-
-	// depth-traverses an object by properties
-	function getProp(obj, propPath) {
-		for (var i in propPath) {
-			obj = obj[propPath[i]];
-			if (typeof obj == 'undefined') break;
-		}
-		return obj;
 	}
 
 	var NodeFactory = new function() {
@@ -203,24 +193,15 @@ var HandleBar = function(opts) {
 			}
 		}
 
-		var Node = function() {
-			this.parent = null;
-			this.Clone = Clone;
-		}
+		var Node = function() {}
 
 			var CacheNode = function(dataPath, cacheKey) {
 				this.base = Node; this.base();
-				this.dataPath = dataPath || [];
+				this.dataPath = dataPath || null;
 				this.cacheKey = cacheKey;
 
 				this.Render = function(buf, ctx) {
-					var node = cache[this.cacheKey].Clone();
-					if (!this.dataPath.length)
-						node.RenderChildren(buf, ctx);
-					else {
-						node.dataPath = this.dataPath;
-						node.Render(buf, ctx);
-					}
+					cache[this.cacheKey].Render(buf, ctx, this.dataPath);
 				}
 			}
 
@@ -228,25 +209,35 @@ var HandleBar = function(opts) {
 				this.base = Node; this.base();
 				this.content = content;
 
-				this.Render = function(buf, ctx) {
+				this.Render = function(buf) {
 					buf.write(this.content);
 				}
 			}
 
 			var EnumPosNode = function() {
 				this.base = Node; this.base();
-				this.Render = function(buf, ctx) {
-					buf.write(this.parent.enumPos, false);
+
+				this.Render = function(buf, ctx, dataPath, enumPos) {
+					buf.write(enumPos, false);
 				}
 			}
 
 			// data lookup node (all nodes where render directly depends on looked up data)
 			var LookupNode = function(dataPath) {
 				this.base = Node; this.base();
-				this.dataPath = dataPath || [];
+				this.dataPath = dataPath || null;
 
-				this.rendCtx = function(ctx) {
-					return getProp(ctx, this.dataPath);
+				// depth-traverses an context by properties
+				this.Lookup = function(dataPath, ctx) {
+					for (var i in dataPath || []) {
+						ctx = ctx[dataPath[i]];
+						if (typeof ctx == 'undefined') break;
+					}
+					return ctx;
+				}
+
+				this.rendCtx = function(ctx, dataPath) {
+					return this.Lookup(dataPath || this.dataPath, ctx);
 				}
 			}
 				// {{{price~blah}}
@@ -268,17 +259,15 @@ var HandleBar = function(opts) {
 					this.children = [];
 					this.enumObjs = enumObjs || false;
 
-					this.Render = function(buf, ctx) {
-						var rctx = this.rendCtx(ctx);
-						this.RenderChildren(buf, rctx);
+					this.Render = function(buf, ctx, dataPath) {
+						this.RenderChildren(buf, this.rendCtx(ctx, dataPath));
 					}
 
 					this.RenderChildren = function(buf, ctx) {
 						var rctxs = this.enumObjs ? ctx : arrayWrap(ctx);
 						for (var i in rctxs) {
-							this.enumPos = i;
 							for (var j in this.children) {
-								this.children[j].Render(buf, rctxs[i]);
+								this.children[j].Render(buf, rctxs[i], null, i);
 							}
 						}
 					}
@@ -287,13 +276,15 @@ var HandleBar = function(opts) {
 						this.base = BlockNode; this.base(dataPath);
 						this.inverted = inverted || false;		// TODO: make better
 
-						this.rendCtx = function(ctx) {return ctx};
+						this.rendCtx = function(ctx) {return [ctx]};
 
 						this.Render = function(buf, ctx) {
-							if (!isFalsy(getProp(ctx, this.dataPath)) === this.inverted) return;
+							var chkFunc = this.Lookup(this.dataPath, checkers),
+								chkVal = (chkFunc && chkFunc(ctx)) || this.Lookup(this.dataPath, ctx);
 
-							var rctx = this.rendCtx(ctx);
-							this.RenderChildren(buf, rctx);
+							if (!isFalsy(chkVal) === this.inverted) return;
+
+							this.RenderChildren(buf, this.rendCtx(ctx));
 						}
 					}
 	}
