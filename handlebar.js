@@ -14,7 +14,7 @@ var HandleBar = function(opts) {
 
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
-			re = function(){return (/{{([{>?!#]*([\w.]+)?(?:[>~=][~>\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
+			re = function(){return (/{{([{>?!#]*([\w.]*)(?:[:=~>\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
 
 		this.next = function() {
 			if (end) return null;
@@ -37,35 +37,51 @@ var HandleBar = function(opts) {
 		}
 	}
 
-	function ParseTag(tagStr){
+	function ParseTag(tagStr) {
 		if (!tagStr) return null;
-		// 1: unescaped; 2: bool or useCache; 3: dataPathStr / cacheKey; 4: reformat or useCache; 5: formatter / cacheKey
-		var m = tagStr.match(/({)?([>?!#])?([\w.]+)?(?:([>~=])([~>\w.]+))?/),
-			d = {bool: false, dataPath: null, cacheKey: null, inverted: false, formatter: null, escaped: !m[1], subTag: null, enumAcc: false},
-			dataPathStr;
 
-		switch (m[2]) {
-			case '>': d.cacheKey = m[3]; break;
-			case '#': d.enumAcc = true; dataPathStr = m[3]; break;		// serves both, force-enum objects and enum keys
+		var d = {};
+
+		// cacheKey
+		var tag_ck = tagStr.split('>');
+		d.cacheKey = tag_ck[1] || null;
+		tagStr = tag_ck[0];
+
+		// subTag
+		var tag_sub = tagStr.split('=');
+		d.subTag = tag_sub[1] ? '{{' + tag_sub[1] + '}}' : null;
+		tagStr = tag_sub[0];
+
+		// formatter
+		var tag_fmtr = tagStr.split('~');
+		d.formatter = tag_fmtr[1] || null;
+		tagStr = tag_fmtr[0];
+
+		// checker function
+		var tag_chkr = tagStr.split(':');
+		d.checker = tag_chkr[1] || null;
+		tagStr = tag_chkr[0];
+
+		// enumFlag (enumAcc)
+		var enum_tag = tagStr.split('#');
+		d.enumAcc = enum_tag.length == 2;
+		tagStr = enum_tag.pop();
+
+		// unescFlag (unescaped)
+		var esc_tag = tagStr.split('{');
+		d.escaped = esc_tag.length == 1;
+		tagStr = esc_tag.pop();
+
+		d.bool = d.inverted = false;
+		switch(tagStr[0]) {
 			case '!': d.inverted = true;
 			case '?': d.bool = true;
-			default: dataPathStr = m[3];
+			tagStr = tagStr.substring(1);
 		}
 
-		switch (m[4]) {
-			case '>': d.cacheKey = m[5]; break;
-			case '~': d.formatter = m[5]; break;
-			case '=': d.subTag = '{{' + m[5] + '}}'; break;
-		}
-
-		// handle property paths (items.length)
-		if (dataPathStr == '.')
-			d.dataPath = [];
-		else if (dataPathStr)
-			d.dataPath = dataPathStr.split('.');
+		d.dataPath = tagStr == '.' ? [] : tagStr ? tagStr.split('.') : null;
 
 		return d;
-
 	}
 
 	function Parse(template) {
