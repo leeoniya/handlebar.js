@@ -1,12 +1,10 @@
-/*
-module("Modifiers");
 test("'{' - HTML Pass-Through", function(){
 	var data, tmpl, M = new HandleBar();
 	tmpl = "{{one}} & {{{two}}!";
 	data = {one:"<Hello>", two:"<World>"};
 	equals(M.Render(tmpl, data), "&lt;Hello&gt; & <World>!", "Un/escaped HTML in templates and data");
 })
-*/
+
 test("'>' - Use Cache", function(){
 	var data, tmpl, M = new HandleBar();
 
@@ -85,9 +83,7 @@ test("'! and ?' - Conditionals", function(){
 //	tmpl = "{{?items=items.length}}";
 })
 
-module('Render Tests');
-// test("Context Ident", function(){})
-// simple block context checks
+
 test("{} Hashes (simple)", function(){
 	var data, tmpl, M = new HandleBar();
 
@@ -106,7 +102,7 @@ test("{} Hashes (simple)", function(){
 	data = {one:[{num:5, anim:"bears"},{num:9, anim:"oxes"}], two:"to eat"};
 	equals(M.Render(tmpl, data), "5 bears\n9 oxes\n to eat now", "Arrays within hashes");
 })
-// simple enumeration checks
+
 test("[] Arrays (simple)", function(){
 	var data, tmpl, M = new HandleBar();
 
@@ -184,9 +180,8 @@ test("{{.}} Self context", function(){
 	tmpl = "{{{.}}";
 	equals(M.Render(tmpl, data), "<br />&", "Don't escape {{{.}}");
 
-//	tmpl = "{{items}}{{.}},{{/items}}";
 //	equals(M.Render(tmpl, data), ".5,1,1.5,", "Pass to formatter leave unescaped {{{.~halved}}");
-})
+});
 
 test("{{a.b}} Property Accessors", function(){
 	var data, tmpl, M = new HandleBar();
@@ -227,8 +222,7 @@ test("{{a.b}} Property Accessors", function(){
 	data = {item:{parts:{pieces:{head:'h',feet:['f1','f2']}}}};
 	equals(M.Render(tmpl, data), "hf1f2", "Drill-down contexting 2");
 
-	// super maybe: add numeric enum access? {{item.parts[2]}} or {{item.parts.2}}
-})
+});
 
 test("{{#}} Enum Key Access", function(){
 	var data, tmpl, M = new HandleBar();
@@ -292,14 +286,7 @@ test("Empty Values", function(){
 test("Blind Recursive", function(){
 	var data, tmpl, M = new HandleBar({checkers:{isEnum: function(val){return typeof val == "object"}}});
 
-//	tmpl = "{{>list}}<ul>{{#.}}<li>{{#}}:{{?isEnum}}{{>list}}{{/isEnum}}{{!isEnum=.}}</li>{{/.}}</ul>{{/list}}";
-
-//	tmpl = "{{>list}}<ul>{{#.}}<li>{{#}}:{{?isEnum=>list}}{{!isEnum=.}}</li>{{/.}}</ul>{{/list}}";
-//	tmpl += "{{>list}}";
-
-
 	tmpl = "<ul>{{#.>item}}<li>{{#}}:{{?isEnum}}<ul>{{>item}}</ul>{{/isEnum}}{{!isEnum=.}}</li>{{/.}}</ul>";
-
 
 	data = {
 		A: 'x',
@@ -308,12 +295,11 @@ test("Blind Recursive", function(){
 		D: {k:3, m:4, r:[9,3,1]}
 	};
 
-	equals(M.Render(tmpl, data), "<ul><li>A:x</li><li>B:<ul><li>0:u</li></ul></li><li>C:<ul><li>0:y</li><li>1:z</li><li>2:<ul><li>h:2</li><li>i:6</li></ul></li></ul></li><li>D:<ul><li>k:3</li><li>m:4</li><li>r:<ul><li>0:9</li><li>1:3</li><li>2:1</li></ul></li></ul></li></ul>", "Access to current enum position");
+	equals(M.Render(tmpl, data), "<ul><li>A:x</li><li>B:<ul><li>0:u</li></ul></li><li>C:<ul><li>0:y</li><li>1:z</li><li>2:<ul><li>h:2</li><li>i:6</li></ul></li></ul></li><li>D:<ul><li>k:3</li><li>m:4</li><li>r:<ul><li>0:9</li><li>1:3</li><li>2:1</li></ul></li></ul></li></ul>", "Recurse Arbitrary Data");
 
 });
 
 //module("Public Methods");
 //test("Render (new)", function(){})
 //test("Render (cached)", function(){})
-//test("Cache", function(){})
 //test("Cache", function(){})
