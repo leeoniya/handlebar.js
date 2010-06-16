@@ -33,24 +33,24 @@ test("'>' - Use Cache", function(){
 test("'! and ?' - Conditionals", function(){
 	var data, tmpl, M = new HandleBar();
 
-	tmpl = "{{!isHere}}shown{{/isHere}}";
+	tmpl = "{{isHere!}}shown{{/isHere}}";
 	data = {isHere:false};
 	equals(M.Render(tmpl, data), "shown", "Render inverted on falsy");
 
-	tmpl = "{{?isHere}}shown{{/isHere}}";
+	tmpl = "{{isHere?}}shown{{/isHere}}";
 	data = {isHere:true};
 	equals(M.Render(tmpl, data), "shown", "Render regular on truthy");
 
 	// check correct context and never switch contexts
-	tmpl = "{{?items}}{{item_count}} items{{/items}}";
+	tmpl = "{{items?}}{{item_count}} items{{/items}}";
 	data = {items:['one','two'], item_count: 2};
 	equals(M.Render(tmpl, data), "2 items", "if");
 
-	tmpl = "{{!items}}sorry, no items{{/items}}";
+	tmpl = "{{items!}}sorry, no items{{/items}}";
 	data = {items:[], item_count: 0};
 	equals(M.Render(tmpl, data), "sorry, no items", "not");
 
-	tmpl = "{{?items}}{{item_count}} items{{/items}}{{!items}}sorry, no items{{/items}}";
+	tmpl = "{{items?}}{{item_count}} items{{/items}}{{items!}}sorry, no items{{/items}}";
 	data = {items:["A","B"], item_count: 2};
 	equals(M.Render(tmpl, data), "2 items", "if / not (non-empty)");
 
@@ -58,23 +58,35 @@ test("'! and ?' - Conditionals", function(){
 	equals(M.Render(tmpl, data), "sorry, no items", "if / not (empty)");
 
 	data = {item:{fake:false}, item_count: 0};
-	tmpl = "{{!item.fake}}{{item_count}}{{/item.fake}}";
+	tmpl = "{{item.fake!}}{{item_count}}{{/item.fake}}";
 	equals(M.Render(tmpl, data), "0", "bool property eval");
 
-	tmpl = "{{?items=item_count}}";
+	tmpl = "{{items?=item_count}}";
 	data = {items:["A","B"], item_count: 2};
 	equals(M.Render(tmpl, data), "2", "block-free shorthand syntax");
 
-	tmpl = "{{!items.fake=babies}}";
+	tmpl = "{{items.fake!=babies}}";
 	data = {items:{fake:false}, babies:'yes'};
 	equals(M.Render(tmpl, data), "yes", "block-free shorthand w/property condition");
 
-	tmpl = "{{?items=items.length}}";
+	tmpl = "{{items?=items.length}}";
 	data = {items:["A","B"]};
 	equals(M.Render(tmpl, data), "2", "block-free shorthand w/property access");
-
-	M = new HandleBar({checkers:{isEven: function(val){return val % 2 == 0;}}});
-	tmpl = "{{!isEven}}x{{/isEven}}{{?isEven=.}}";
+	
+	M = new HandleBar({checkers:{
+		isEven: function(val){return val % 2 == 0;},
+		lowPrice: function(val){return val < 60.00;}
+	}});
+	
+	tmpl = "{{items.cost?lowPrice=lowMsg}}";
+	data = {items:{cost:55.30}, lowMsg: "good", highMsg: "bad"};
+	equals(M.Render(tmpl, data), "good", "external checkers truthy");
+	
+	data.items.cost = 75.30;
+	tmpl = "{{items.cost!lowPrice=highMsg}}";
+	equals(M.Render(tmpl, data), "bad", "external checkers falsy");
+	
+	tmpl = "{{.!isEven}}x{{/.}}{{.?isEven=.}}";
 	data = [1,2,3,4];
 	equals(M.Render(tmpl, data), "x2x4", "External checkers on current context");
 
@@ -281,12 +293,12 @@ test("Empty Values", function(){
 
 	data.two = function(){return {}};
 	equals(M.Render(tmpl, data), "", "Functions returning empties");
-})
+});
 
 test("Blind Recursive", function(){
 	var data, tmpl, M = new HandleBar({checkers:{isEnum: function(val){return typeof val == "object"}}});
 
-	tmpl = "<ul>{{#.>item}}<li>{{#}}:{{?isEnum}}<ul>{{>item}}</ul>{{/isEnum}}{{!isEnum=.}}</li>{{/.}}</ul>";
+	tmpl = "<ul>{{#.>item}}<li>{{#}}:{{.?isEnum}}<ul>{{>item}}</ul>{{/.}}{{.!isEnum=.}}</li>{{/.}}</ul>";
 
 	data = {
 		A: 'x',
@@ -296,7 +308,6 @@ test("Blind Recursive", function(){
 	};
 
 	equals(M.Render(tmpl, data), "<ul><li>A:x</li><li>B:<ul><li>0:u</li></ul></li><li>C:<ul><li>0:y</li><li>1:z</li><li>2:<ul><li>h:2</li><li>i:6</li></ul></li></ul></li><li>D:<ul><li>k:3</li><li>m:4</li><li>r:<ul><li>0:9</li><li>1:3</li><li>2:1</li></ul></li></ul></li></ul>", "Recurse Arbitrary Data");
-
 });
 
 //module("Public Methods");

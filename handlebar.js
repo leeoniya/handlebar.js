@@ -14,7 +14,7 @@ var HandleBar = function(opts) {
 
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
-			re = function(){return (/{{([{>?!#]*([\w.]*)(?:[:=~>\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
+			re = function(){return (/{{([{>#]*([\w.]*)(?:[?!=~>\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
 
 		this.next = function() {
 			if (end) return null;
@@ -57,10 +57,15 @@ var HandleBar = function(opts) {
 		d.formatter = tag_fmtr[1] || null;
 		tagStr = tag_fmtr[0];
 
-		// checker function
-		var tag_chkr = tagStr.split(':');
-		d.checker = tag_chkr[1] || null;
-		tagStr = tag_chkr[0];
+		// bool + checkers
+		d.bool = d.inverted = false;
+		if (tagStr.indexOf('?') != -1) {d.bool = true;}
+		else if (tagStr.indexOf('!') != -1) {d.bool = d.inverted = true;}
+		if (d.bool) {
+			var tag_chkr = tagStr.split(/[?!]/);
+			d.checker = tag_chkr[1] || null;
+			tagStr = tag_chkr[0];
+		}
 
 		// enumFlag (enumAcc)
 		var enum_tag = tagStr.split('#');
@@ -71,13 +76,6 @@ var HandleBar = function(opts) {
 		var esc_tag = tagStr.split('{');
 		d.escaped = esc_tag.length == 1;
 		tagStr = esc_tag.pop();
-
-		d.bool = d.inverted = false;
-		switch(tagStr[0]) {
-			case '!': d.inverted = true;
-			case '?': d.bool = true;
-			tagStr = tagStr.substring(1);
-		}
 
 		d.dataPath = tagStr == '.' ? [] : tagStr ? tagStr.split('.') : null;
 
@@ -166,6 +164,10 @@ var HandleBar = function(opts) {
 		return val === null || val === false || typeof val === "undefined" || val.length === 0 || typeof val === "object" && isEmpty(val);
 	}
 
+	function isTruthy(val) {
+		return !isFalsy(val);
+	}
+
 	function arrayWrap(v) {
 		switch (typeOf(v)) {
 			case "array": return v;
@@ -200,7 +202,7 @@ var HandleBar = function(opts) {
 
 				if (!tag) {node = new BlockNode;}
 				// {{?bool}} {{!bool}}
-				else if (tag.bool) {node = new BoolNode(tag.dataPath, tag.inverted);}
+				else if (tag.bool) {node = new BoolNode(tag.dataPath, tag.inverted, tag.checker);}
 				// {{items}} {{items.blah}}
 				else {node = new BlockNode(tag.dataPath, tag.enumAcc);}
 
@@ -288,17 +290,20 @@ var HandleBar = function(opts) {
 						}
 					}
 				}
-					var BoolNode = function(dataPath, inverted) {
+
+					var BoolNode = function(dataPath, inverted, checker) {
 						this.base = BlockNode; this.base(dataPath);
 						this.inverted = inverted || false;		// TODO: make better
+						this.checker = checker;
 
 						this.rendCtx = function(ctx) {return [ctx]};
 
 						this.Render = function(buf, ctx) {
-							var chkFunc = this.Lookup(this.dataPath, checkers),
-								chkVal = (chkFunc && chkFunc(ctx)) || this.Lookup(this.dataPath, ctx);
+							var chkFunc = checkers[checker],
+								chkVal = this.Lookup(this.dataPath, ctx),
+								chkRes = isTruthy(chkFunc ? chkFunc(chkVal) : chkVal);
 
-							if (!isFalsy(chkVal) === this.inverted) return;
+							if (chkRes === this.inverted) return;
 
 							this.RenderChildren(buf, this.rendCtx(ctx));
 						}
