@@ -14,7 +14,7 @@ var HandleBar = function(opts) {
 
 	function Tokenizer(tmpl) {
 		var buf = [], idx = 0, match, end = null, pretxt, postxt,
-			re = function(){return (/{{([{>#]*([\w.]*)(?:[?!=~>\w.]+)?)}}(?:([\s\S]+?){{\/\2}})?/gm)}();	// fixes chrome (webkit?) bug
+			re = function(){return (/{{([{>#]*([\w.]*)(?:[?!=~>\w.]+)?)(?:\/}}|}}(?:([\s\S]+?){{\/\2}})?)/gm)}();	// fixes chrome (webkit?) bug
 
 		this.next = function() {
 			if (end) return null;
@@ -206,7 +206,7 @@ var HandleBar = function(opts) {
 				// {{items}} {{items.blah}}
 				else {node = new BlockNode(tag.dataPath, tag.enumAcc);}
 
-				node.children = Parse(content, node);
+				node.children = Parse(content);
 				return node;
 			}
 		}

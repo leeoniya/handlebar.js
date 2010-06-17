@@ -3,7 +3,14 @@ test("'{' - HTML Pass-Through", function(){
 	tmpl = "{{one}} & {{{two}}!";
 	data = {one:"<Hello>", two:"<World>"};
 	equals(M.Render(tmpl, data), "&lt;Hello&gt; & <World>!", "Un/escaped HTML in templates and data");
-})
+});
+
+test("'/}}' - Block Self-Close", function(){
+	var data, tmpl, M = new HandleBar();
+	tmpl = "{{one/}} {{one?}}cow{{/one}}";
+	data = {one:"moo"};
+	equals(M.Render(tmpl, data), "moo cow", "Force close a tag so parser doesn't barf");
+});
 
 test("'>' - Use Cache", function(){
 	var data, tmpl, M = new HandleBar();
@@ -28,7 +35,7 @@ test("'>' - Use Cache", function(){
 	tmpl = "{{items>xItem}}{{qty}},{{price}},{{parts>xItem}},{{/items}}";		// should render on non-existent parts, not just empty
 	data = {items:[{qty:2,price:5.99,parts:[{qty: 1, price:6.99}, {qty:3,price:7.99}]},{qty:9,price:10.55}]};
 	equals(M.Render(tmpl, data), "2,5.99,1,6.99,,3,7.99,,,9,10.55,,", "Recursively render a cached template.");
-})
+});
 
 test("'! and ?' - Conditionals", function(){
 	var data, tmpl, M = new HandleBar();
@@ -93,7 +100,7 @@ test("'! and ?' - Conditionals", function(){
 //	tmpl = "{{?items=item_count~money}}";
 //	tmpl = "{{?items=blah.haha~money}}";
 //	tmpl = "{{?items=items.length}}";
-})
+});
 
 
 test("{} Hashes (simple)", function(){
@@ -127,7 +134,7 @@ test("[] Arrays (simple)", function(){
 	equals(M.Render(tmpl, data), "test stringie\nanother string thing\n", "Array of nested hashes");
 
 	// arrays of arrays?
-})
+});
 
 test("~ Formatters", function(){
 	function formatMoney(n, c, d, t){
@@ -168,8 +175,7 @@ test("~ Formatters", function(){
 //	data = [1,2,3];
 	data = [[1,2,3]];
 	equals(M.Render(tmpl, data), "1,2,3", "Only wrapped arrays not enumed");
-
-})
+});
 
 test("{{.}} Self context", function(){
 	var data, tmpl, M = new HandleBar();
@@ -298,7 +304,10 @@ test("Empty Values", function(){
 test("Blind Recursive", function(){
 	var data, tmpl, M = new HandleBar({checkers:{isEnum: function(val){return typeof val == "object"}}});
 
-	tmpl = "<ul>{{#.>item}}<li>{{#}}:{{.?isEnum}}<ul>{{>item}}</ul>{{/.}}{{.!isEnum=.}}</li>{{/.}}</ul>";
+	var item = "<li>{{#}}:{{.?isEnum}}<ul>{{>item}}</ul>{{/.}}{{.!isEnum=./}}</li>";
+	M.Cache(item, 'item');
+	
+	tmpl = "<ul>{{#.>item}}</ul>";
 
 	data = {
 		A: 'x',
