@@ -8,7 +8,7 @@ one thing i will mention is that handlebar.js templates will not be compatible w
 - blocks no longer have #, since they're always indicated by closing tags, like in HTML: {{pets}}{{/pets}}. these blocks will always change context
 - conditional blocks must be indicated explicitly: {{goodPrice?}}price is good{{/goodPrice}} and {{goodPrice!}}no so good price{{/goodPrice}} these blocks will never change context
 - the above conditional opening tags are actually just shortcuts to {{goodPrice?isTruthy}} and {{goodPrice!isTruthy}}, thus you can register and pass your own functions like {{weight?overLimit}}{{/weight}}
-- furthermore, there's a shorthand output method so you dont need to write conditional and drill-down blocks all the time {{person.weight?overLimit=overClass}}{{person.weight!overLimit=underClass}}
+- furthermore, there's a shorthand output method so you dont need to write conditional and drill-down blocks all the time when simply outputting a value: {{person.weight?overLimit=overClass}}{{person.weight!overLimit=underClass}}
 - you can pass values to formatting functions. {{price~asMoney}}
 - partials are now a full-blown block cache. {{>myItem}} will output the block in the current context, {{items>myItem}} will output the block in the context of items, {{>myItem}}blah!{{/myItem}} will cache the contents as "myItem" {{items>myItem}}blah{{/items}} will cache the block which makes it available for reuse later and at the same time applies it to the items context.
 - a root template node and object wrapper with lookup key is no longer required for enumerated blocks.
