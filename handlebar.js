@@ -19,6 +19,8 @@ var HandleBar = function(opts) {
 		this.next = function() {
 			if (end) return null;
 			if (buf.length) return buf.shift();
+			
+			re.lastIndex = idx;		// fixes FF<4 bug? where lastIndex seemingly gets cross-set by other regex instances?
 
 			match = re.exec(tmpl);
 			if (match) {
