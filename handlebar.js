@@ -119,8 +119,9 @@ var HandleBar = function(opts) {
 		return buf.toString();
 	}
 
-	this.Cache = function(tmpl, cacheKey) {
-		cache[cacheKey] = NodeFactory.Create(null, tmpl);
+	this.Cache = function(tmpl, cacheKey, enumObjs) {
+		var tag = enumObjs ? ParseTag("#.") : null;			// TODO: this needs to just take a wrapped string. it's a hack to help the simplistic parser
+		cache[cacheKey] = NodeFactory.Create(tag, tmpl);
 	}
 
 	function StringWriter() {

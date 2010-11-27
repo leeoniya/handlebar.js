@@ -304,22 +304,18 @@ test("Empty Values", function(){
 test("Blind Recursive", function(){
 	var data, tmpl, M = new HandleBar({checkers:{isEnum: function(val){return typeof val == "object"}}});
 
-	var item = "<li>{{#}}:{{.?isEnum}}<ul>{{>item}}</ul>{{/.}}{{.!isEnum=./}}</li>";
-	M.Cache(item, 'item');
-	
-	tmpl = "<ul>{{#.>item}}</ul>";
+	// with better parser, should actually work like this, without needing separate caching as below
+//	var item = "{{#.>item}}<li>{{#}}:{{.?isEnum}}<ul>{{>item}}</ul>{{/.}}{{.!isEnum=./}}</li>{{/.}}";
 
+	var tmpl = "<li>{{#}}:{{.?isEnum}}<ul>{{>item}}</ul>{{/.}}{{.!isEnum=./}}</li>";
+	M.Cache(tmpl, 'item', true);
+	
 	data = {
 		A: 'x',
 		B: ['u'],
 		C: ['y','z',{h: 2, i:6}],
 		D: {k:3, m:4, r:[9,3,1]}
 	};
-
-	equals(M.Render(tmpl, data), "<ul><li>A:x</li><li>B:<ul><li>0:u</li></ul></li><li>C:<ul><li>0:y</li><li>1:z</li><li>2:<ul><li>h:2</li><li>i:6</li></ul></li></ul></li><li>D:<ul><li>k:3</li><li>m:4</li><li>r:<ul><li>0:9</li><li>1:3</li><li>2:1</li></ul></li></ul></li></ul>", "Recurse Arbitrary Data");
+	
+	equals('<ul>' + M.Render(tmpl, data, true) + '</ul>', "<ul><li>A:x</li><li>B:<ul><li>0:u</li></ul></li><li>C:<ul><li>0:y</li><li>1:z</li><li>2:<ul><li>h:2</li><li>i:6</li></ul></li></ul></li><li>D:<ul><li>k:3</li><li>m:4</li><li>r:<ul><li>0:9</li><li>1:3</li><li>2:1</li></ul></li></ul></li></ul>", "Recurse Arbitrary Data");
 });
-
-//module("Public Methods");
-//test("Render (new)", function(){})
-//test("Render (cached)", function(){})
-//test("Cache", function(){})
